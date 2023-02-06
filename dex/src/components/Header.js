@@ -1,6 +1,7 @@
 import React from 'react';
 import Logo from '../moralis-logo.svg';
 import Eth from '../eth.svg';
+import Polygon from '../polygon.svg';
 import { Link } from 'react-router-dom';
 
 function Header(props) {
@@ -21,6 +22,10 @@ function Header(props) {
           <img src={Eth} alt="eth" className="eth" />
           Ethereum
         </div>
+        {/* <div className="headerItem">
+          <img src={Polygon} alt="Polygon" className="eth" />
+          Polygon
+        </div> */}
         <div className="connectButton" onClick={connect}>
           {isConnected
             ? address.slice(0, 4) + '...' + address.slice(38)

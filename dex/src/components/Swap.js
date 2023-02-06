@@ -11,6 +11,7 @@ import { useSendTransaction, useWaitForTransaction } from 'wagmi';
 
 function Swap(props) {
   const { isConnected, address } = props;
+  const [messageApi, contextHolder] = message.useMessage();
   const [slippage, setSlippage] = useState(2.5);
   const [tokenOneAmount, setTokenOneAmount] = useState(null);
   const [tokenTwoAmount, setTokenTwoAmount] = useState(null);
@@ -26,10 +27,16 @@ function Swap(props) {
   });
 
   const { data, sendTransaction } = useSendTransaction({
-    from: address,
-    to: String(txDetails.to),
-    data: String(txDetails.data),
-    value: String(txDetails.value),
+    request: {
+      from: address,
+      to: String(txDetails.to),
+      data: String(txDetails.data),
+      value: String(txDetails.value),
+    },
+  });
+
+  const { isLoading, isSuccess } = useWaitForTransaction({
+    hash: data?.hash,
   });
 
   function handleSlippageChange(e) {
@@ -98,11 +105,27 @@ function Swap(props) {
         `https://api.1inch.io/v5.0/1/approve/transaction?tokenAddress=${tokenOne.address}`
       );
       setTxDetails(approve.data);
-      console.log('not approved');
+      // console.log('not approved');
       return;
     }
 
-    console.log('make swap');
+    // console.log('make swap');
+    // TODO fix the problem with current padding: it does not work with
+    // fractional amounts
+    const tx = await axios.get(
+      `https://api.1inch.io/v5.0/1/swap?fromTokenAddress=${
+        tokenOne.address
+      }&toTokenAddress=${tokenTwo.address}&amount=${tokenOneAmount.padEnd(
+        tokenOne.decimals + tokenOneAmount.length,
+        '0'
+      )}&fromAddress=${address}&slippage=${slippage}`
+    );
+
+    // Adjust the real amount of tokens about to be received
+    let decimals = Number(`1E${tokenTwo.decimals}`);
+    setTokenTwoAmount((Number(tx.data.toTokenAmount) / decimals).toFixed(2));
+
+    setTxDetails(tx.data.tx);
   }
 
   useEffect(() => {
@@ -114,6 +137,36 @@ function Swap(props) {
       sendTransaction();
     }
   }, [txDetails]);
+
+  useEffect(() => {
+    messageApi.destroy();
+
+    if (isLoading) {
+      messageApi.open({
+        type: 'loading',
+        content: 'Transaction is Pending...',
+        duration: 0,
+      });
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    messageApi.destroy();
+    if (isSuccess) {
+      messageApi.open({
+        type: 'success',
+        content: 'Transaction Successful',
+        duration: 1.5,
+      });
+    } else if (txDetails.to) {
+      messageApi.open({
+        type: 'error',
+        content: 'Transaction Failed',
+        duration: 1.5,
+      });
+    }
+  }, [isSuccess]);
+
   const settings = (
     <>
       <div>Slippage tolerance</div>
@@ -128,6 +181,7 @@ function Swap(props) {
   );
   return (
     <>
+      {contextHolder}
       <Modal
         open={isOpen}
         footer={null}
